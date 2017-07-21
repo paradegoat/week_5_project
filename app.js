@@ -1,144 +1,107 @@
-
-'use strict';
 const express = require('express');
-const expressValidator = require('express-validator');
-const mustacheExpress = require('mustache-express');
 const bodyParser = require('body-parser');
+const mustache = require('mustache-express');
+const expressValidator = require('express-validator');
+const cookieParser = require('cookie-parser');
 const session = require('express-session');
-const sessionConfig = require("./sessionConfig");
-const fs = require('file-system');
-const app = express();
-const port = process.env.port || 3000;
+const fs = require('fs');
+
+
 const words = fs.readFileSync("/usr/share/dict/words", "utf-8").toLowerCase().split("\n");
 
+let app = express();
 
-app.engine("mustache", mustacheExpress());
+const startModel = {
+  counter: 8
+};
 
-app.set("views", "./views");
-app.set("view engine", "mustache");
+app.use(session({
+  secret: 'original and not copied',
+  resave: false,
+  saveUninitialized: true
+}))
 
-app.use("/", express.static("./views"));
-app.use(bodyParser.urlencoded({extended: false}));
-app.use(session(sessionConfig));
+app.engine('mustache', mustache());
+
+app.set('views', './views');
+app.set('view engine', 'mustache');
+
+app.use(express.static('public'));
+app.use(bodyParser.urlencoded());
 app.use(expressValidator());
 
-app.use(function (req, res, next) {
-  var game = req.session.game;
-  if (!game) {
-    game = req.session.game = {};
-    game.mode = '';
-    game.guessesLeft = 8;
-    game.lettersGuessed = [];
-    game.textBtn = 'Play game';
-    game.status = '';
-    game.lose = false;
-    game.playing = false;
-    game.message = '';
-    game.display = '';
-  }
-  next();
-});
-
-
-app.get('/', function(req, res) {
-  if (req.session.game.playing || req.session.game.textBtn != 'Play game') {
-    req.session.game.display = buildDisplay(req.session.game);
-  }
-  res.render('index', { game: req.session.game });
-});
-
-app.post('/', function(req, res) {
-  var game = req.session.game;
-  if (game.playing) {
-    req.checkBody("guessLetter", "You must enter a letter!").notEmpty().isAlpha();
-    var errors = req.validationErrors();
-    console.log('ERRORS =', errors);
-    if (errors) {
-      game.message = errors[0].msg;
-    } else {
-      console.log('lettersGuessed ',game.lettersGuessed);
-      if (game.lettersGuessed.indexOf(req.body.guessLetter.toUpperCase()) > -1) {
-        game.message = 'You already guessed letter ' + req.body.guessLetter.toUpperCase();;
-      } else {
-        var n = game.word.indexOf(req.body.guessLetter.toUpperCase());
-        if (n == -1) {
-          game.message = 'Bad guess...try again!';
-          game.guessesLeft -= 1;
-          game.lettersGuessed.push(req.body.guessLetter.toUpperCase());
-          if (game.guessesLeft == 0) {
-            game.message = '';
-            game.textBtn = 'Try again';
-            game.status = 'You lose!';
-            game.playing = false;
-            game.lose = true;
-          }
-        } else {
-          game.lettersGuessed.push(req.body.guessLetter.toUpperCase());
-          game.message = '';
-          req.session.game.display = buildDisplay(req.session.game);
-          if (game.display.indexOf(' ') ==  -1) {
-            game.message = '';
-            game.textBtn = 'Try again';
-            game.status = 'You win!';
-            game.playing = false;
-            game.lose = false;
-          }
-        }
-      }
-    }
-  } else {
-    game.playing = true;
-    game.textBtn = "Make a guess";
-    game.mode = req.body.mode;
-    game.word = findRandomWord(game.mode);
-    game.lose = false;
-    game.guessesLeft = 8;
-    game.lettersGuessed = [];
-  }
-
-  console.log("you are watching", req.session);
-  res.redirect('/');
-});
-
-
-app.listen(port, function() {
-  console.log('please work this time');
-});
-
-function buildDisplay(game) {
-  var showText = [];
-  for (let i = 0; i < game.word.length; i++) {
-    if (game.lettersGuessed.indexOf(game.word[i]) > -1) {
-       showText.push(game.word[i].toUpperCase());
-     } else {
-       if (game.lose == true) {
-          showText.push(game.word[i].toUpperCase());
-       } else {
-          showText.push(' ');
-       }
-     }
-  }
-  return showText;
-};
-
-function findRandomWord(mode) {
-  let randomWord;
-  let wordLength = 0;
-  let getWord = false;
-
-  while (!getWord) {
-    let randomNumber = Math.floor((Math.random() * words.length-1) + 1)
-    randomWord = words[randomNumber];
-    wordLength = randomWord.length;
-    switch(mode) {
-      case'':
-          if (wordLength <= 7) {getWord = true;}
-          break;
-      default:
-          getWord = true;
-          break;
+app.get('/', (request, response) => {
+  var chosenWord = '';
+  function wordLength(){
+    if(chosenWord.length > 7) {
+      wordGenerator();
     }
   }
+  function wordGenerator() {
+    chosenWord = words[Math.floor(Math.random() * words.length)];
+    wordLength();
+  }
 
-  return randomWord.toUpperCase();
-};
+  wordGenerator();
+  var spaces = [];
+  var whiteSpace = [];
+  for (i = 0; i < chosenWord.length; i++){
+    spaces.push(' __ ');
+    whiteSpace.push(' ');
+  }
+  session.guessesLeft = 8;
+  session.word = chosenWord;
+  session.spaces = spaces;
+  session.whiteSpace = whiteSpace;
+  session.guessedLetters = [];
+  console.log(session.spaces);
+  console.log(session.word);
+  console.log(session.guessesLeft);
+  response.render('index', startModel);
+
+})
+
+app.post('/', (request, response) => {
+  var userGuess = (request.body.guess);
+  var correct = false;
+  session.guessedLetters.push(userGuess);
+  for(i = 0; i < session.word.length; i++){
+    if(userGuess == session.word[i]){
+      session.spaces[i] = userGuess;
+      correct = true;
+    }
+  }
+  if(!correct){
+    session.guessesLeft = session.guessesLeft - 1;
+  }
+  console.log(session.spaces);
+  console.log(session.guessedLetters);
+  console.log(session.guessesLeft);
+
+  var model = {
+    spaces: session.spaces,
+    whiteSpace: session.whiteSpace,
+    guessed: session.guessedLetters,
+    counter: session.guessesLeft,
+    word: session.word
+  };
+  session.model = model;
+  console.log(model);
+
+  if(session.guessesLeft > 0){
+    response.render('index', model);
+  }
+  else {
+    response.render('index', model);
+  }
+
+})
+
+app.post('/', (request, response) => {
+  response.redirect('/');
+  resquest.session = null;
+})
+
+app.listen(4000, function () {
+  console.log('lets drive');
+})

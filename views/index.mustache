@@ -1,38 +1,31 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Mystery Word Game</title>
   <meta charset="UTF-8">
-  <link href="style.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+  <link rel="stylesheet" type="text/css" href="/styles.css" />
 </head>
 <body>
-  <h1 id="mystery">mystery game</h1>
-
-
-  <div id="letter-wrapper">
-    {{#game.display}}
-    <div class="letters">{{.}}</div>
-    {{/game.display}}
+  <h2>Mystery Word</h2>
+  <h2>You have {{counter}} guesses left</h2>
+  <div class="guess-display">
+    {{#spaces}}
+    <h1>{{.}}</h1>
+    {{/spaces}}
   </div>
-
-  <form action="/" method="post">
-    {{#game.playing}}
-    <input type="text" name="guessLetter" placeholder="sup" maxlength="1" autofocus>
-    {{/game.playing}}
-
-    {{#game.lose}}
-    <p id="lose">{{game.status}}</p>
-    {{/game.lose}}
-    <input type="submit" value="{{game.textBtn}}">
-
-    {{#game.playing}}
-    <p id="guesses">letters guessed: {{game.lettersGuessed}}</p>
-    <p id="message">{{game.message}}</p>
-    {{/game.playing}}
+  <form method="post" action="/">
+    <input type="text" name="guess" placeholder="your letter (lowercase)" maxlength="1" pattern="[a-z]{1}"/>
+    <button type="submit">guess</button>
   </form>
-
-  <p>{{game.guessesLeft}}</p>
-  <p>Guesses Left</p>
-
+  <div class="guessed-wrapper">
+  <h3>Your Guessed Letters</h3>
+  <div class="guessed-letters">
+    {{#guessed}}
+    <p>{{.}}</p>
+    {{/guessed}}
+  </div>
+  </div>
 </body>
 </html>
